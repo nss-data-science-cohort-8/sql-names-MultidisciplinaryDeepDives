@@ -11,7 +11,6 @@ FROM names
 
 SELECT SUM(num_registered)
 FROM names
-WHERE num_registered IS NOT NULL and num_registered > 0
 ;
 
 
@@ -22,31 +21,17 @@ WHERE num_registered IS NOT NULL and num_registered > 0
 
 SELECT *
 FROM names
-WHERE num_registered = (SELECT MAX(num_registered) 
-						FROM names)
+WHERE num_registered = (SELECT MAX(num_registered) FROM names)
 ;
 
 
---Alternative Solution 1:
+--Alternative solution:
 
-SELECT *
+SELECT name, num_registered, year
 FROM names
 ORDER BY num_registered DESC
-LIMIT 1  
-;
-
-
-
---Alternative Solution 2: a more all-encompassing approach / a more on-point solution: 
-
-SELECT name, year, SUM(num_registered) AS total_num_registered
-FROM names
-GROUP BY name, year
-ORDER BY total_num_registered DESC
 LIMIT 1
-;
-
-
+; 
 
 
 
@@ -71,9 +56,9 @@ SELECT year
 ;
 
 
--- Alternative Solution:
+-- Alternative solution:
 
-SELECT year, SUM(num_registered) AS total_registered
+SELECT SUM(num_registered) AS total_registered, year
 FROM names
 GROUP BY year
 ORDER BY SUM(num_registered) DESC
@@ -96,42 +81,27 @@ FROM names
 -- Ans: Female
 
 
-SELECT gender, SUM(num_registered), COUNT(*)
+SELECT gender, COUNT(*)
 FROM names
 GROUP BY gender 
 ;
 
 
---Alternative Solution 1:
 
-SELECT (CASE WHEN males > females then 'true' else 'false' end) AS are_more_males_than_females_registered
-FROM (SELECT SUM(num_registered) 
-		FROM names 
-		WHERE gender = 'M') AS males,
-     (SELECT SUM(num_registered) 
-	 	FROM names 
-		WHERE gender = 'F') AS females;
+--Alternative solution:
+
+select (case when males > females then 'true' else 'false' end) as are_more_males_than_females_registered
+from (select count(gender) from names where gender = 'M') males,
+     (select count(gender) from names where gender = 'F') females;
 
 
-
---Alternative solution 2 (work-in-progress):
-
-SELECT gender, LAG(SUM(num_registered)) OVER (ORDER BY gender) AS gender_reg_diff
-FROM names
-GROUP BY gender;
-
- 
-
-
-
- 
 
 
 -- 8. What are the most popular male and female names overall (i.e., the most total registrations)??
 -- Ans: James, John, Robert, Michael, Mary, ...
 
 
-SELECT name, gender, SUM(num_registered) AS total_registered
+SELECT name, gender, SUM(num_registered)
 FROM names 
 GROUP BY name, gender
 ORDER BY SUM(num_registered) DESC
@@ -139,67 +109,32 @@ ORDER BY SUM(num_registered) DESC
 
 
 
---Alternative Solution 1
+--Alternative solution 1
 
-SELECT gender, name, SUM(num_registered) AS total_registered
+SELECT name, SUM(num_registered)
 FROM names
 WHERE gender = 'F'
-GROUP BY gender, name
-ORDER BY total_registered DESC
+GROUP BY name
+ORDER BY SUM(num_registered) DESC
 LIMIT 1;
 -- Most popular overall female name is Mary (4,125,675 registered)
 
 
-
-SELECT gender, name, SUM(num_registered) AS total_registered
+SELECT name, SUM(num_registered)
 FROM names
 WHERE gender = 'M'
-GROUP BY gender, name
-ORDER BY total_registered DESC
-LIMIT 1;
+GROUP BY name
+ORDER BY SUM(num_registered) DESC
+LIMIT 1; 
 --Most popular overall male name is James (5,164,280)
 
 
+--Alternative solution 2
+select distinct name, gender, sum(num_registered) over (partition by name, gender) as total_registrations
+from names
+order by total_registrations desc;
 
 
-
---Alternative Solution 2 (piecing together the 2 parts in Alt Solution 1)
-
-SELECT * 
-FROM (SELECT name, SUM(num_registered) as MAX_POPULAR 
-		FROM names 
-		WHERE gender = 'F' 
-		GROUP BY gender, name 
-		ORDER BY MAX_POPULAR DESC 
-		LIMIT 1)
-UNION
-SELECT * 
-FROM (SELECT name, SUM(num_registered) as MAX_POPULAR 
-		FROM names 
-		WHERE gender = 'M' 
-		GROUP BY gender, name 
-		ORDER BY MAX_POPULAR DESC 
-		LIMIT 1)
-;
-
-
-
---Alternative Solution 3
-SELECT DISTINCT name, gender, SUM(num_registered) OVER (PARTITION BY name, gender) AS total_registrations
-FROM names
-ORDER BY total_registrations DESC
-;
-
-
-
---Alternative Solution 4
-
-SELECT DISTINCT ON (gender) name, gender, SUM(num_registered) AS total_registrations
-FROM names
-GROUP BY name, gender
-ORDER BY gender, total_registrations DESC
-;
- 
 
 
 
@@ -244,22 +179,10 @@ LIMIT 1;
 
 -- Alternative Solution 2
 
-SELECT DISTINCT name, gender, SUM(num_registered) OVER (PARTITION BY name, gender) AS total_registrations
-FROM names
-WHERE year BETWEEN 2000 AND 2009
-ORDER BY total_registrations DESC
-;
-
-
--- Alternative Solution 3
-
-SELECT DISTINCT ON (gender) name, gender, SUM(num_registered)
-FROM names
-WHERE year BETWEEN 2000 AND 2009
-GROUP BY name, gender
-ORDER BY gender, SUM(num_registered) DESC
-;
-
+select distinct name, gender, sum(num_registered) over (partition by name, gender) as total_registrations
+from names
+where year between 2000 and 2009
+order by total_registrations desc;
 
 
 
@@ -270,7 +193,7 @@ SELECT COUNT(DISTINCT name), year
 FROM names
 GROUP BY year
 ORDER BY COUNT(DISTINCT name) DESC
-LIMIT 1 
+LIMIT 1
 ;
  
 
@@ -314,16 +237,7 @@ WHERE name LIKE 'Q%'
 ;
 
 
---Alternative Solution with slight modification:
-
-SELECT distinct name 
-FROM names nm 
-WHERE name LIKE 'Q%' 
-	AND SUBSTRING(name, 2, 1) <> 'u'
-;
-
-
---Alternative Solution 1:
+--Alternative solution 1:
 
 SELECT DISTINCT(name) 
 FROM names 
@@ -331,8 +245,7 @@ WHERE name LIKE 'Q%'
 	AND name NOT LIKE '_u%'
 ;
 
-
---Alternative Solution 2: 
+--Alternative solution 2: 
 
 SELECT DISTINCT(name) 
 FROM names 
@@ -340,14 +253,12 @@ WHERE name LIKE 'Q%'
 	AND name NOT LIKE 'Qu%'
 ;
 
---Side Note: LIKE function doesn't work with regular expression. Reg_Match() and other similar functions are better suited for regular expression usage.
-
 
 
 -- 13. Which is the more popular spelling between "Stephen" and "Steven"? Use a single query to answer this question.
 -- Ans: Steven is more popular
 
-SELECT name, SUM(num_registered) 
+SELECT name, SUM(num_registered)
 FROM names
 WHERE name = 'Stephen' OR name = 'Steven'
 GROUP BY name 
@@ -355,11 +266,10 @@ GROUP BY name
 
 --Alternative solution with slight modifications
 
-SELECT name, SUM(num_registered) AS total_registered
+SELECT name, SUM(num_registered)
 FROM names
 WHERE name IN ('Stephen', 'Steven')
-GROUP BY name
-;
+GROUP BY name;
 
 
 
@@ -376,9 +286,7 @@ HAVING COUNT(DISTINCT gender) = 2
 ORDER BY name
 ;
 
-
--- Alternative solution 1: make 2 tables (1 containing all male names, 1 containing all female names), then inner join them
-
+-- Alternative solution: make 2 tables, then inner join them
 
 -- One way to verify (sanity check): 
 SELECT *
@@ -388,38 +296,7 @@ WHERE name = 'Alejandra'
 
 
 
--- Alternative Solution 2:
 
-SELECT DISTINCT N1.NAME
-FROM NAMES N1
-WHERE GENDER = 'M'
-	AND EXISTS (
-				SELECT 'x'
-				FROM NAMES N2
-				WHERE N2.NAME = N1.NAME
-					AND N2.GENDER = 'F'
-	);
-
-
-
--- Alternative Solution 3  ~  10773 rows *2 = 21546 rows:
-
-SELECT DISTINCT gender, name
-FROM names
-WHERE name IN (SELECT name
-				FROM names
-				WHERE gender = 'F')
-AND name IN (SELECT name
-				FROM names
-				WHERE gender = 'M')
-ORDER BY name, gender;
-
-
-
---Alternative solution 4 ?
-
-
- 
 
 -- 15. Find all names that have made an appearance in every single year since 1880.
 -- My Ans: 
@@ -431,62 +308,22 @@ SELECT COUNT(DISTINCT year)
 -- 139 yrs
 
 
-
-
-SELECT name, COUNT(DISTINCT year)
-FROM names
-GROUP BY name  
-HAVING COUNT(DISTINCT year)=139  
-ORDER BY name
-;
-
---side step:
 SELECT COUNT(DISTINCT year)
 	FROM names
 	WHERE name = 'Ashley'
 ;
 
 
-
----Alternative solution 1, using subqueries 
-
-SELECT
-	NAME,
-	COUNT(DISTINCT YEAR)
-FROM
-	NAMES
-GROUP BY
-	NAME
-HAVING
-	COUNT(DISTINCT YEAR) = (
-		SELECT
-			COUNT(DISTINCT YEAR)
-		FROM
-			NAMES
-	) ORDER BY
-	NAME;
+SELECT name, COUNT(DISTINCT year)
+FROM names
+GROUP BY name  
+HAVING COUNT(DISTINCT year)=139  
+;
 
 
---Alternative solution 2. Doesn't quite work (ans=927, instead of 921, due to that some rows have "M/F")
-
-SELECT DISTINCT
-	NAME,
-	GENDER,
-	COUNT(YEAR) AS YEARCOUNT
-FROM
-	NAMES
-GROUP BY
-	NAME,
-	GENDER
-HAVING
-	COUNT(YEAR) >= 139
-ORDER BY
-	NAME;
 
 
---Alternative solution 3 (review recording?):
-
-
+ 
 
 
 
@@ -494,52 +331,14 @@ ORDER BY
 -- 16. Find all names that have only appeared in one year.
 -- My Ans: 
 
---This query renders 1 row per name (regardless of whether the name is used by 1 or both genders)
 
 SELECT name, COUNT(DISTINCT year)
-FROM names
-GROUP BY name  
-HAVING COUNT(DISTINCT year) = 1  
-ORDER BY name
-;
-
-
---This query yields 1 row per name, per gender - but only if the name "only appeared in one year" across both genders
-
-SELECT name, gender, year
-FROM names
-WHERE name IN
-	(SELECT name
 	FROM names
-	GROUP BY name
-	HAVING COUNT(DISTINCT year) = 1)
-ORDER BY name
+	GROUP BY name  
+	HAVING COUNT(DISTINCT year) = 1  
 ;
 
-
-
---This query yields 1 row per name, per gender: more rows are returned by this query, since the "only appeared in one year" requirement is applied to each name's appearance with each gender
-
-SELECT name, gender, COUNT(DISTINCT year)
-FROM names
-GROUP BY name, gender
-HAVING COUNT(DISTINCT year) = 1
-ORDER BY name
-;
-
-
-
---Here're the 23 unisex names that account for the difference (seen above) in the # of rows yielded from the queries above
-
-SELECT name, gender, year
-FROM names
-WHERE name IN (SELECT name
-				FROM names
-				GROUP BY name
-				HAVING COUNT(DISTINCT YEAR) = 1 AND COUNT(gender) = 2)
-ORDER BY name;
-
-
+ 
 
 
 
@@ -547,23 +346,22 @@ ORDER BY name;
 -- Ans: 
 
 SELECT DISTINCT name
-FROM names
-GROUP BY name
-HAVING MIN(year) >= 1950 AND MAX(year) <= 1959
+	FROM names
+	GROUP BY name
+	HAVING MIN(year) >= 1950 AND MAX(year) <= 1959
 ;
 
 
--- Alternative solution 1:
+-- Alternative solution:
 
 SELECT name
 FROM(SELECT name
-		FROM names
-		WHERE year BETWEEN 1950 AND 1959
-		EXCEPT
-		SELECT name
-		FROM names
-		WHERE year < 1950 OR year >1959
-										) AS fifties_names;
+	FROM names
+	WHERE year BETWEEN 1950 AND 1959
+	EXCEPT
+	SELECT name
+	FROM names
+	WHERE year < 1950 OR year >1959) AS fifties_names;
 
 
 
@@ -596,13 +394,21 @@ FROM(SELECT name
 -- 19. Find the names that have not be used in the longest.
 -- Ans: 
 
-SELECT name, MAX(year), 2018 - MAX(year) AS years_since_named
+SELECT name, 2018 - MAX(year) AS years_since_named
 FROM names
 GROUP BY name
 ORDER BY years_since_named DESC
 ;
 
- 
+
+-- Alternative solution
+
+SELECT name, MAX(year)
+FROM names
+GROUP BY name
+ORDER BY MAX(year)
+;
+
 
 
 -- 20. Come up with a question that you would like to answer using this dataset. Then write a query to answer this question.
